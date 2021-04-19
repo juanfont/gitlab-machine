@@ -2,9 +2,6 @@ package drivers
 
 type Driver interface {
 	Create(instanceName string) error
-	RunCommand(instanceName string) (string, string)
+	RunCommand(instanceName string) error
 	Destroy(instanceName string) error
-}
-
-type Instance interface {
 }

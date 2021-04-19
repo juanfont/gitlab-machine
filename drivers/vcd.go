@@ -216,14 +216,14 @@ func (d *VcdDriver) Create(instanceName string) error {
 	vm.UpdateNetworkConnectionSection(netSection)
 
 	log.Printf("Setting up guest customization...")
-	sshCustomScript, err := d.getGuestCustomizationScript()
+	// sshCustomScript, err := d.getGuestCustomizationScript()
 	if err != nil {
 		return err
 	}
 
 	enabled := true
 	vm.VM.GuestCustomizationSection.Enabled = &enabled
-	vm.VM.GuestCustomizationSection.CustomizationScript = sshCustomScript
+	// vm.VM.GuestCustomizationSection.CustomizationScript = sshCustomScript
 	_, err = vm.SetGuestCustomizationSection(vm.VM.GuestCustomizationSection)
 	if err = task.WaitTaskCompletion(); err != nil {
 		return err
@@ -238,9 +238,16 @@ func (d *VcdDriver) Create(instanceName string) error {
 		return err
 	}
 
-	d.VAppHREF = vapp.VApp.HREF
-	d.VMHREF = vm.VM.HREF
+	// d.VAppHREF = vapp.VApp.HREF
+	// d.VMHREF = vm.VM.HREF
 
+	return nil
+}
+
+func (d *VcdDriver) RunCommand(instanceName string) error {
+	return nil
+}
+func (d *VcdDriver) Destroy(instanceName string) error {
 	return nil
 }
 
