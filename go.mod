@@ -1,4 +1,4 @@
-module github.com/juanfont/gitlab-windows-custom-executor
+module github.com/juanfont/gitlab-machine
 
 go 1.16
 

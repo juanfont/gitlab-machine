@@ -1,16 +1,18 @@
-package drivers
+package vcd
 
 import (
-	"crypto/tls"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
+	"github.com/juanfont/gitlab-machine/ssh"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 )
+
+const SSHPort = 22
 
 type VcdDriverConfig struct {
 	VcdURL           string
@@ -33,11 +35,15 @@ type VcdDriverConfig struct {
 }
 
 type VcdDriver struct {
-	cfg    VcdDriverConfig
-	client *govcd.VCDClient
+	cfg           VcdDriverConfig
+	client        *govcd.VCDClient
+	machineName   string
+	VAppHREF      string
+	VMHREF        string
+	adminPassword string
 }
 
-func NewVcdDriver(cfg VcdDriverConfig) (*VcdDriver, error) {
+func NewVcdDriver(cfg VcdDriverConfig, machineName string) (*VcdDriver, error) {
 	u, err := url.ParseRequestURI(cfg.VcdURL)
 	if err != nil {
 		return nil, err
@@ -55,7 +61,7 @@ func NewVcdDriver(cfg VcdDriverConfig) (*VcdDriver, error) {
 	return &d, nil
 }
 
-func (d *VcdDriver) Create(instanceName string) error {
+func (d *VcdDriver) Create() error {
 	org, err := d.client.GetOrgByName(d.cfg.VcdOrg)
 	if err != nil {
 		return err
@@ -103,14 +109,14 @@ func (d *VcdDriver) Create(instanceName string) error {
 		}
 	}
 
-	log.Printf("Creating a new vApp: %s...", instanceName)
+	log.Printf("Creating a new vApp: %s...", d.machineName)
 	networks := []*types.OrgVDCNetwork{}
 	networks = append(networks, net.OrgVDCNetwork)
 	task, err := vdc.ComposeVApp(
 		networks,
 		vapptemplate,
 		storageProfile,
-		instanceName,
+		d.machineName,
 		d.cfg.Description,
 		true)
 
@@ -121,7 +127,7 @@ func (d *VcdDriver) Create(instanceName string) error {
 		return err
 	}
 
-	vapp, err := vdc.GetVAppByName(instanceName, true)
+	vapp, err := vdc.GetVAppByName(d.machineName, true)
 	if err != nil {
 		return err
 	}
@@ -229,7 +235,7 @@ func (d *VcdDriver) Create(instanceName string) error {
 		return err
 	}
 
-	log.Printf("Booting up %s...", instanceName)
+	log.Printf("Booting up %s...", d.machineName)
 	task, err = vapp.PowerOn()
 	if err != nil {
 		return err
@@ -238,40 +244,91 @@ func (d *VcdDriver) Create(instanceName string) error {
 		return err
 	}
 
-	// d.VAppHREF = vapp.VApp.HREF
-	// d.VMHREF = vm.VM.HREF
+	d.VAppHREF = vapp.VApp.HREF
+	d.VMHREF = vm.VM.HREF
 
 	return nil
 }
 
-func (d *VcdDriver) RunCommand(instanceName string) error {
-	return nil
-}
-func (d *VcdDriver) Destroy(instanceName string) error {
-	return nil
-}
-
-func newClient(apiURL url.URL, user, password, org string, insecure bool) (*govcd.VCDClient, error) {
-	vcdclient := &govcd.VCDClient{
-		Client: govcd.Client{
-			APIVersion: "32.0", // supported by 9.5, 9.7, 10.0, 10.1
-			VCDHREF:    apiURL,
-			Http: http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: insecure,
-					},
-					Proxy:               http.ProxyFromEnvironment,
-					TLSHandshakeTimeout: 120 * time.Second, // Default timeout for TSL hand shake
-				},
-				Timeout: 1200 * time.Second, // Default value for http request+response timeout
-			},
-			MaxRetryTimeout: 60, // Default timeout in seconds for retries calls in functions
-		},
+func (d *VcdDriver) GetSSHClientFromDriver() (ssh.Client, error) {
+	auth := ssh.Auth{
+		Passwords: []string{d.adminPassword},
 	}
-	err := vcdclient.Authenticate(user, password, org)
+
+	vm, err := d.getVM()
 	if err != nil {
-		return nil, fmt.Errorf("unable to authenticate to Org \"%s\": %s", org, err)
+		return nil, err
 	}
-	return vcdclient, nil
+	var user string
+	if strings.Contains(vm.VM.VmSpecSection.OsType, "windows") {
+		user = "Administrator"
+	} else {
+		user = "root"
+	}
+
+	ip, err := d.GetIP()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := ssh.NewClient(user, ip, SSHPort, &auth)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func (d *VcdDriver) Destroy() error {
+	vapp, err := d.getVApp()
+	if err != nil {
+		return err
+	}
+
+	task, err := vapp.PowerOff()
+	if err == nil {
+		log.Printf("Powering off...")
+		if err = task.WaitTaskCompletion(); err != nil {
+			return err
+		}
+	}
+
+	task, err = vapp.Undeploy()
+	if err == nil {
+		log.Printf("Undeploying...")
+		if err = task.WaitTaskCompletion(); err != nil {
+			return err
+		}
+	}
+
+	task, err = vapp.Delete()
+	if err != nil {
+		return err
+	}
+	if err = task.WaitTaskCompletion(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *VcdDriver) GetIP() (string, error) {
+	vm, err := d.getVM()
+	if err != nil {
+		return "", err
+	}
+
+	// We assume that the vApp has only one VM with only one NIC
+	if vm.VM.NetworkConnectionSection != nil {
+		networks := vm.VM.NetworkConnectionSection.NetworkConnection
+		for _, n := range networks {
+			if n.ExternalIPAddress != "" {
+				return n.ExternalIPAddress, nil
+			}
+			if n.IPAddress != "" { // perhaps this is too opinionated ?
+				return n.IPAddress, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("could not get public IP")
 }

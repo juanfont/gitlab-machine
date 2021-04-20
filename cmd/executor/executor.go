@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	executor "github.com/juanfont/gitlab-windows-custom-executor"
-	"github.com/juanfont/gitlab-windows-custom-executor/drivers"
+	machine "github.com/juanfont/gitlab-machine"
+	"github.com/juanfont/gitlab-machine/drivers/vcd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -26,26 +26,33 @@ var prepareCmd = &cobra.Command{
 	Short: "Prepare a new instance of the executor.",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := drivers.VcdDriverConfig{
-			VcdURL:           "",
-			VcdOrg:           "",
-			VcdVdc:           "",
-			VcdInsecure:      false,
-			VcdUser:          "",
-			VcdPassword:      "",
-			VcdOrgVDCNetwork: "",
-			Catalog:          "",
-			Template:         "",
+		cfg := vcd.VcdDriverConfig{
+			VcdURL:           viper.GetString("vcd_url"),
+			VcdOrg:           viper.GetString("vcd_org"),
+			VcdVdc:           viper.GetString("vcd_vdc"),
+			VcdInsecure:      viper.GetBool("vcd_insecure"),
+			VcdUser:          viper.GetString("vcd_user"),
+			VcdPassword:      viper.GetString("vcd_password"),
+			VcdOrgVDCNetwork: viper.GetString("vcd_vdc_network"),
+			Catalog:          viper.GetString("vcd_catalog"),
+			Template:         viper.GetString("vcd_template"),
 			NumCpus:          0,
 			CoresPerSocket:   0,
 			MemorySizeMb:     0,
-			VAppHREF:         "",
-			VMHREF:           "",
-			Description:      "",
+			Description:      "Create by the gitlab-custom-executor",
 			StorageProfile:   "",
 		}
-		vcd, _ := drivers.NewVcdDriver(cfg)
-		e, _ := executor.NewExecutor(vcd)
+
+		machineName := fmt.Sprintf(
+			"runner-%s-project-%s-concurrent-%s-job-%s",
+			os.Getenv("CUSTOM_ENV_CI_RUNNER_ID"),
+			os.Getenv("CUSTOM_ENV_CI_PROJECT_ID"),
+			os.Getenv("CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID"),
+			os.Getenv("CUSTOM_ENV_CI_JOB_ID"),
+		)
+
+		vcd, _ := vcd.NewVcdDriver(cfg, machineName)
+		e, _ := machine.NewExecutor(vcd)
 		e.Prepare()
 	},
 }

@@ -1,7 +1,9 @@
 package drivers
 
+import "github.com/juanfont/gitlab-machine/ssh"
+
 type Driver interface {
-	Create(instanceName string) error
-	RunCommand(instanceName string) error
-	Destroy(instanceName string) error
+	Create() error
+	Destroy() error
+	GetSSHClientFromDriver() (ssh.Client, error)
 }
