@@ -3,6 +3,7 @@ package executor
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/juanfont/gitlab-machine/drivers"
 )
@@ -19,18 +20,31 @@ func NewExecutor(d drivers.Driver) (*Executor, error) {
 
 // Prepare calls the driver to ready up a new execution environment
 func (e *Executor) Prepare() error {
+	err := e.driver.Create()
+	if err != nil {
+		return err
+	}
+
+	e.runCommands([]string{"choco install -y git git-lfs gitlab-runner"})
 
 	return nil
 }
 
 // Run executes the required script
-func (e *Executor) Run() {
-
+func (e *Executor) Run(path string, stage string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	log.Printf("Starting stage on %s %s", e.driver.GetMachineName(), stage)
+	e.runCommands([]string{string(content)})
+	return nil
 }
 
 // Cleanup releases the resources once the job has finished
-func (e *Executor) CleanUp() {
-
+func (e *Executor) CleanUp() error {
+	err := e.driver.Destroy()
+	return err
 }
 
 func (e *Executor) runCommands(commands []string) error {

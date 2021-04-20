@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juanfont/gitlab-machine/drivers"
 	"github.com/juanfont/gitlab-machine/ssh"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
@@ -32,6 +33,8 @@ type VcdDriverConfig struct {
 	VMHREF         string
 	Description    string
 	StorageProfile string
+
+	DefaultPassword string
 }
 
 type VcdDriver struct {
@@ -54,11 +57,17 @@ func NewVcdDriver(cfg VcdDriverConfig, machineName string) (*VcdDriver, error) {
 	}
 
 	d := VcdDriver{
-		cfg:    cfg,
-		client: c,
+		cfg:           cfg,
+		client:        c,
+		machineName:   machineName,
+		adminPassword: cfg.DefaultPassword,
 	}
 
 	return &d, nil
+}
+
+func (d *VcdDriver) GetMachineName() string {
+	return d.machineName
 }
 
 func (d *VcdDriver) Create() error {
@@ -95,6 +104,7 @@ func (d *VcdDriver) Create() error {
 
 	var storageProfile types.Reference
 	if d.cfg.StorageProfile != "" {
+		log.Printf("Finding storage %s...", d.cfg.StorageProfile)
 		storageProfile, err = vdc.FindStorageProfileReference(d.cfg.StorageProfile)
 		if err != nil {
 			return err
@@ -131,7 +141,7 @@ func (d *VcdDriver) Create() error {
 	if err != nil {
 		return err
 	}
-	//d.VAppHREF = vapp.VApp.HREF
+	d.VAppHREF = vapp.VApp.HREF
 
 	if len(vapp.VApp.Children.VM) != 1 {
 		return fmt.Errorf("VM count != 1")
@@ -144,7 +154,7 @@ func (d *VcdDriver) Create() error {
 		return err
 	}
 	log.Printf("Found VM: %s...", vm.VM.Name)
-	//d.VMHREF = vm.VM.HREF
+	d.VMHREF = vm.VM.HREF
 
 	cWait := make(chan string, 1)
 	go func() {
@@ -228,7 +238,12 @@ func (d *VcdDriver) Create() error {
 	}
 
 	enabled := true
+	disabled := false
 	vm.VM.GuestCustomizationSection.Enabled = &enabled
+	vm.VM.GuestCustomizationSection.AdminPassword = d.adminPassword
+	vm.VM.GuestCustomizationSection.AdminPasswordEnabled = &enabled
+	vm.VM.GuestCustomizationSection.AdminPasswordAuto = &disabled
+	vm.VM.GuestCustomizationSection.ResetPasswordRequired = &disabled
 	// vm.VM.GuestCustomizationSection.CustomizationScript = sshCustomScript
 	_, err = vm.SetGuestCustomizationSection(vm.VM.GuestCustomizationSection)
 	if err = task.WaitTaskCompletion(); err != nil {
@@ -247,6 +262,15 @@ func (d *VcdDriver) Create() error {
 	d.VAppHREF = vapp.VApp.HREF
 	d.VMHREF = vm.VM.HREF
 
+	log.Printf("Waiting for SSH to be consistently available... ")
+	for i := 0; i < 10; i++ {
+		fmt.Printf("Attempt %d", i)
+		err = drivers.WaitForSSH(d)
+	}
+	if err != nil {
+		return err
+	}
+	log.Printf("Ready!")
 	return nil
 }
 
