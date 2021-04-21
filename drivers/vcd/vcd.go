@@ -330,6 +330,18 @@ func (d *VcdDriver) Destroy() error {
 	return nil
 }
 
+func (d *VcdDriver) GetOS() (drivers.OStype, error) {
+	vm, err := d.getVM()
+	if err != nil {
+		return "", err
+	}
+	if strings.Contains(vm.VM.VmSpecSection.OsType, "windows") {
+		return drivers.Windows, nil
+	} else {
+		return drivers.Linux, nil
+	}
+}
+
 func (d *VcdDriver) GetIP() (string, error) {
 	vm, err := d.getVM()
 	if err != nil {

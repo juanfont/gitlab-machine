@@ -30,10 +30,11 @@ func (e *Executor) Prepare() error {
 	}
 
 	log.Println("Setting up base software")
-	pw := `powershell New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force`
-	e.runCommand(pw, false)
-	e.runCommand("choco install -y --no-progress git git-lfs gitlab-runner", false)
-
+	if os, _ := e.driver.GetOS(); os == drivers.Windows {
+		pw := `powershell New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force`
+		e.runCommand(pw, false)
+		e.runCommand("choco install -y --no-progress git git-lfs gitlab-runner", false)
+	}
 	return nil
 }
 
