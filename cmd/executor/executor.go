@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
 	machine "github.com/juanfont/gitlab-machine"
 	"github.com/juanfont/gitlab-machine/drivers/vcd"
@@ -34,7 +36,9 @@ var prepareVcdCmd = &cobra.Command{
 		vcd := getVcdDriver()
 		e, _ := machine.NewExecutor(vcd)
 		err := e.Prepare()
-		fmt.Println(err)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	},
 }
 
@@ -52,7 +56,9 @@ var runVcdCmd = &cobra.Command{
 		vcd := getVcdDriver()
 		e, _ := machine.NewExecutor(vcd)
 		err := e.Run(args[0], args[1])
-		fmt.Println(err)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	},
 }
 
@@ -64,7 +70,29 @@ var cleanupVcdCmd = &cobra.Command{
 		vcd := getVcdDriver()
 		e, _ := machine.NewExecutor(vcd)
 		err := e.CleanUp()
-		fmt.Println(err)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	},
+}
+
+var shellVcdCmd = &cobra.Command{
+	Use:   "shell cmd",
+	Short: "Opens a shell with the specified command",
+	Long:  "",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			return fmt.Errorf("Missing parameters")
+		}
+		return nil
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		vcd := getVcdDriver()
+		e, _ := machine.NewExecutor(vcd)
+		err := e.Shell(args[0])
+		if err != nil {
+			log.Fatalln(err)
+		}
 	},
 }
 
@@ -113,6 +141,12 @@ func main() {
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/opt/gitlab-machine")
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+	viper.AddConfigPath(exPath)
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
 
@@ -123,6 +157,7 @@ func main() {
 	vcdCmd.AddCommand(prepareVcdCmd)
 	vcdCmd.AddCommand(runVcdCmd)
 	vcdCmd.AddCommand(cleanupVcdCmd)
+	vcdCmd.AddCommand(shellVcdCmd)
 
 	if err := executorCmd.Execute(); err != nil {
 		fmt.Println(err)

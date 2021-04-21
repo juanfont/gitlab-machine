@@ -3,6 +3,7 @@ module github.com/juanfont/gitlab-machine
 go 1.16
 
 require (
+	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/docker/machine v0.16.2
 	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635
 	github.com/prometheus/common v0.4.0

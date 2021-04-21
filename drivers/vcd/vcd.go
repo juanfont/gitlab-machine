@@ -80,19 +80,16 @@ func (d *VcdDriver) Create() error {
 		return err
 	}
 
-	log.Printf("Finding network...")
 	net, err := vdc.GetOrgVdcNetworkByName(d.cfg.VcdOrgVDCNetwork, true)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Finding catalog...")
 	catalog, err := org.GetCatalogByName(d.cfg.Catalog, true)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Finding template...")
 	template, err := catalog.GetCatalogItemByName(d.cfg.Template, true)
 	if err != nil {
 		return err
@@ -104,7 +101,6 @@ func (d *VcdDriver) Create() error {
 
 	var storageProfile types.Reference
 	if d.cfg.StorageProfile != "" {
-		log.Printf("Finding storage %s...", d.cfg.StorageProfile)
 		storageProfile, err = vdc.FindStorageProfileReference(d.cfg.StorageProfile)
 		if err != nil {
 			return err
@@ -119,7 +115,7 @@ func (d *VcdDriver) Create() error {
 		}
 	}
 
-	log.Printf("Creating a new vApp: %s...", d.machineName)
+	log.Printf("Creating a new executor %s", d.machineName)
 	networks := []*types.OrgVDCNetwork{}
 	networks = append(networks, net.OrgVDCNetwork)
 	task, err := vdc.ComposeVApp(
@@ -153,7 +149,7 @@ func (d *VcdDriver) Create() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Found VM: %s...", vm.VM.Name)
+	log.Printf("Deploying VM %s", vm.VM.Name)
 	d.VMHREF = vm.VM.HREF
 
 	cWait := make(chan string, 1)
@@ -201,13 +197,12 @@ func (d *VcdDriver) Create() error {
 	vm.VM.VmSpecSection.NumCpus = &d.cfg.NumCpus
 	vm.VM.VmSpecSection.NumCoresPerSocket = &d.cfg.CoresPerSocket
 
-	log.Printf("Updating virtual hardware specs...")
 	vm, err = vm.UpdateVmSpecSection(vm.VM.VmSpecSection, d.cfg.Description)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Configuring network...")
+	log.Printf("Configuring network")
 	var netConn *types.NetworkConnection
 	var netSection *types.NetworkConnectionSection
 	if vm.VM.NetworkConnectionSection == nil {
@@ -231,7 +226,7 @@ func (d *VcdDriver) Create() error {
 
 	vm.UpdateNetworkConnectionSection(netSection)
 
-	log.Printf("Setting up guest customization...")
+	// log.Printf("Setting up guest customization")
 	// sshCustomScript, err := d.getGuestCustomizationScript()
 	if err != nil {
 		return err
@@ -250,7 +245,7 @@ func (d *VcdDriver) Create() error {
 		return err
 	}
 
-	log.Printf("Booting up %s...", d.machineName)
+	log.Printf("Booting up %s", d.machineName)
 	task, err = vapp.PowerOn()
 	if err != nil {
 		return err
@@ -262,9 +257,9 @@ func (d *VcdDriver) Create() error {
 	d.VAppHREF = vapp.VApp.HREF
 	d.VMHREF = vm.VM.HREF
 
-	log.Printf("Waiting for SSH to be consistently available... ")
+	log.Printf("Waiting for SSH to be available")
 	for i := 0; i < 10; i++ {
-		fmt.Printf("Attempt %d", i)
+		// fmt.Printf("Attempt %d", i)
 		err = drivers.WaitForSSH(d)
 	}
 	if err != nil {

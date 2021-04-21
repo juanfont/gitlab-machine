@@ -13,6 +13,7 @@ import (
 	"github.com/moby/term"
 	"github.com/prometheus/common/log"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type Auth struct {
@@ -22,6 +23,7 @@ type Auth struct {
 
 type Client interface {
 	Output(command string) (string, error)
+	OutputWithPty(command string) (string, error)
 	Shell(args ...string) error
 
 	// Start starts the specified command without waiting for it to finish. You
@@ -207,6 +209,38 @@ func (client *NativeClient) Output(command string) (string, error) {
 	}
 	defer closeConn(conn)
 	defer session.Close()
+
+	output, err := session.CombinedOutput(command)
+
+	return string(output), err
+}
+
+func (client *NativeClient) OutputWithPty(command string) (string, error) {
+	conn, session, err := client.session(command)
+	if err != nil {
+		return "", nil
+	}
+	defer closeConn(conn)
+	defer session.Close()
+
+	fd := int(os.Stdout.Fd())
+
+	termWidth, termHeight, err := terminal.GetSize(fd)
+	if err != nil {
+		return "", err
+	}
+
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          0,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}
+
+	// request tty -- fixes error with hosts that use
+	// "Defaults requiretty" in /etc/sudoers - I'm looking at you RedHat
+	if err := session.RequestPty("xterm", termHeight, termWidth, modes); err != nil {
+		return "", err
+	}
 
 	output, err := session.CombinedOutput(command)
 

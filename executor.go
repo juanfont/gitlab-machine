@@ -1,10 +1,14 @@
 package executor
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"strings"
 
+	"github.com/dimchansky/utfbom"
 	"github.com/juanfont/gitlab-machine/drivers"
 )
 
@@ -25,19 +29,33 @@ func (e *Executor) Prepare() error {
 		return err
 	}
 
-	e.runCommands([]string{"choco install -y git git-lfs gitlab-runner"})
+	log.Println("Setting up base software")
+	pw := `powershell New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force`
+	e.runCommand(pw, false)
+	e.runCommand("choco install -y --no-progress git git-lfs gitlab-runner", false)
 
 	return nil
 }
 
 // Run executes the required script
 func (e *Executor) Run(path string, stage string) error {
-	content, err := os.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	log.Printf("Starting stage on %s %s", e.driver.GetMachineName(), stage)
-	e.runCommands([]string{string(content)})
+	reader, _ := utfbom.Skip(bytes.NewReader(data))
+	buf, err := io.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+
+	// This code is utter crap...
+	content := strings.ReplaceAll(string(buf), "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\n", ";")
+	content = strings.ReplaceAll(content, `"`, `\"`)
+
+	log.Printf("Starting stage on %s %s (%s)", e.driver.GetMachineName(), stage, path)
+	e.runCommand(content, true)
 	return nil
 }
 
@@ -47,22 +65,32 @@ func (e *Executor) CleanUp() error {
 	return err
 }
 
-func (e *Executor) runCommands(commands []string) error {
+// Shell opens a shell with the specified command
+func (e *Executor) Shell(cmd string) error {
 	client, err := e.driver.GetSSHClientFromDriver()
 	if err != nil {
 		return err
 	}
-	for _, command := range commands {
-		log.Printf("About to run SSH command:\n%s", command)
-		output, err := client.Output(command)
-		log.Printf("SSH cmd err, output: %v: %s", err, output)
-		if err != nil {
-			return fmt.Errorf(`ssh command error:
+	return client.Shell(cmd)
+}
+
+func (e *Executor) runCommand(command string, printOutput bool) error {
+	client, err := e.driver.GetSSHClientFromDriver()
+	if err != nil {
+		return err
+	}
+
+	output, err := client.Output(command)
+	if printOutput {
+		fmt.Printf("%s", output)
+	}
+
+	if err != nil {
+		return fmt.Errorf(`ssh command error:
 	command : %s
 	err     : %v
 	output  : %s`, command, err, output)
-		}
-
 	}
+
 	return nil
 }
