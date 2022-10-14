@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juanfont/gitlab-machine/drivers"
-	"github.com/juanfont/gitlab-machine/ssh"
+	"github.com/juanfont/gitlab-machine/pkg/drivers"
+	"github.com/juanfont/gitlab-machine/pkg/ssh"
 	"github.com/vmware/go-vcloud-director/v2/govcd"
 	"github.com/vmware/go-vcloud-director/v2/types/v56"
 )

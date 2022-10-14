@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/rs/zerolog/log"
 
 	machine "github.com/juanfont/gitlab-machine"
-	"github.com/juanfont/gitlab-machine/drivers/vcd"
+	"github.com/juanfont/gitlab-machine/pkg/drivers/vcd"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -33,11 +36,11 @@ var prepareVcdCmd = &cobra.Command{
 	Short: "Prepare a new instance of the vCloud Director executor",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		vcd := getVcdDriver()
-		e, _ := machine.NewExecutor(vcd)
+		vcdDriver := getVcdDriver()
+		e, _ := machine.NewExecutor(vcdDriver)
 		err := e.Prepare()
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal().Err(err).Msg("Error preparing executor")
 		}
 	},
 }
@@ -57,7 +60,7 @@ var runVcdCmd = &cobra.Command{
 		e, _ := machine.NewExecutor(vcd)
 		err := e.Run(args[0], args[1])
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal().Err(err).Msg("Error creating executor")
 		}
 	},
 }
@@ -71,7 +74,7 @@ var cleanupVcdCmd = &cobra.Command{
 		e, _ := machine.NewExecutor(vcd)
 		err := e.CleanUp()
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal().Err(err).Msg("Error cleaning up executor")
 		}
 	},
 }
@@ -91,7 +94,7 @@ var shellVcdCmd = &cobra.Command{
 		e, _ := machine.NewExecutor(vcd)
 		err := e.Shell(args[0])
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal().Err(err).Msg("Error creating executor")
 		}
 	},
 }
@@ -138,6 +141,13 @@ func getVcdDriver() *vcd.VcdDriver {
 }
 
 func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: time.RFC3339,
+		NoColor:    false,
+	})
+
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/opt/gitlab-machine")
@@ -145,10 +155,22 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	exPath := filepath.Dir(ex)
 	viper.AddConfigPath(exPath)
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
+
+	logLevel := viper.GetString("log_level")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	level, err := zerolog.ParseLevel(logLevel)
+	if err != nil {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	} else {
+		zerolog.SetGlobalLevel(level)
+	}
 
 	executorCmd.AddCommand(versionCmd)
 	executorCmd.AddCommand(vcdCmd)

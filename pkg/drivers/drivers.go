@@ -1,6 +1,6 @@
 package drivers
 
-import "github.com/juanfont/gitlab-machine/ssh"
+import "github.com/juanfont/gitlab-machine/pkg/ssh"
 
 type OStype string
 

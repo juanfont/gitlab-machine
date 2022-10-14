@@ -10,10 +10,15 @@ import (
 	"strings"
 
 	"github.com/docker/machine/libmachine/mcnutils"
+	"github.com/juanfont/gitlab-machine/pkg/utils"
 	"github.com/moby/term"
-	"github.com/prometheus/common/log"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
+)
+
+const (
+	ErrCreatingNativeGoClient = utils.Error("Error creating native Go SSH client")
 )
 
 type Auth struct {
@@ -48,16 +53,15 @@ type NativeClient struct {
 }
 
 func NewClient(user string, host string, port int, auth *Auth) (Client, error) {
-	log.Debug("Using SSH client type: native")
-	client, err := NewNativeClient(user, host, port, auth)
-	log.Debug(client)
-	return client, err
+	log.Info().Msgf("Creating SSH client for %s@%s:%d", user, host, port)
+	return NewNativeClient(user, host, port, auth)
 }
 
 func NewNativeClient(user, host string, port int, auth *Auth) (Client, error) {
 	config, err := NewNativeConfig(user, auth)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting config for native Go SSH: %s", err)
+		log.Error().Err(err).Msg("Error creating SSH client config")
+		return nil, ErrCreatingNativeGoClient
 	}
 
 	return &NativeClient{
@@ -250,7 +254,7 @@ func (client *NativeClient) OutputWithPty(command string) (string, error) {
 func (client *NativeClient) dialSuccess() bool {
 	conn, err := ssh.Dial("tcp", net.JoinHostPort(client.Hostname, strconv.Itoa(client.Port)), &client.Config)
 	if err != nil {
-		log.Debugf("Error dialing TCP: %s", err)
+		log.Debug().Err(err).Msg("Error dialing TCP")
 		return false
 	}
 	closeConn(conn)
@@ -274,6 +278,6 @@ func (client *NativeClient) session(command string) (*ssh.Client, *ssh.Session, 
 func closeConn(c io.Closer) {
 	err := c.Close()
 	if err != nil {
-		log.Debugf("Error closing SSH Client: %s", err)
+		log.Debug().Err(err).Msg("Error closing SSH client")
 	}
 }

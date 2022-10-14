@@ -4,17 +4,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prometheus/common/log"
+	"github.com/juanfont/gitlab-machine/pkg/utils"
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	ErrExecutingSSHCommand  = utils.Error("error executing SSH command")
+	ErrTooManyRetriesForSSH = utils.Error("too many retries waiting for SSH to be available")
 )
 
 // From github.com/docker/machine/libmachine
 
 func sshAvailableFunc(d Driver) func() bool {
 	return func() bool {
-		log.Debug("Getting to WaitForSSH function...")
+		log.Debug().Msg("Getting to WaitForSSH function...")
 
 		if _, err := runSSHCommandFromDriver(d, "exit"); err != nil {
-			log.Debugf("Error getting ssh command 'exit' : %s", err)
+			log.Debug().Err(err).Msgf("Error getting ssh command 'exit'")
 			return false
 		}
 		return true
@@ -24,7 +30,8 @@ func sshAvailableFunc(d Driver) func() bool {
 func WaitForSSH(d Driver) error {
 	// Try to dial SSH for 30 seconds before timing out.
 	if err := waitForSpecific(sshAvailableFunc(d), 1200, 10*time.Second); err != nil {
-		return fmt.Errorf("Too many retries waiting for SSH to be available. Last error: %s", err)
+		log.Error().Err(err).Msg("Error waiting for SSH")
+		return ErrTooManyRetriesForSSH
 	}
 	return nil
 }
@@ -55,15 +62,15 @@ func runSSHCommandFromDriver(d Driver, command string) (string, error) {
 		return "", err
 	}
 
-	log.Debugf("About to run SSH command:\n%s", command)
+	log.Info().Msgf("Running SSH command: %s", command)
 
 	output, err := client.Output(command)
-	log.Debugf("SSH cmd err, output: %v: %s", err, output)
 	if err != nil {
-		return "", fmt.Errorf(`ssh command error:
-command : %s
-err     : %v
-output  : %s`, command, err, output)
+		log.Error().
+			Err(err).
+			Str("output", output).
+			Msgf("Error running SSH command")
+		return "", ErrExecutingSSHCommand
 	}
 
 	return output, nil

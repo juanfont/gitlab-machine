@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/dimchansky/utfbom"
-	"github.com/juanfont/gitlab-machine/drivers"
+	"github.com/juanfont/gitlab-machine/pkg/drivers"
 )
 
 type Executor struct {
