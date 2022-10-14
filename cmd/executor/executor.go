@@ -51,7 +51,7 @@ var runVcdCmd = &cobra.Command{
 	Long:  "",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 2 {
-			return fmt.Errorf("Missing parameters")
+			return fmt.Errorf("missing parameters")
 		}
 		return nil
 	},
@@ -67,7 +67,7 @@ var runVcdCmd = &cobra.Command{
 
 var cleanupVcdCmd = &cobra.Command{
 	Use:   "cleanup",
-	Short: "Prepare a new instance of the vCloud Director executor",
+	Short: "Remove the current executor",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
 		vcd := getVcdDriver()
@@ -85,7 +85,7 @@ var shellVcdCmd = &cobra.Command{
 	Long:  "",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
-			return fmt.Errorf("Missing parameters")
+			return fmt.Errorf("missing parameters")
 		}
 		return nil
 	},
@@ -102,39 +102,44 @@ var shellVcdCmd = &cobra.Command{
 var executorCmd = &cobra.Command{
 	Use:   "executor",
 	Short: "executor - a Gitlab Custom Executor",
-	Long: fmt.Sprintf(`
+	Long: `
 A custom executor for Gitlab
-Juan Font Alonso <juanfontalonso@gmail.com> - 2021
-https://gitlab.com/juanfont/gitlab-machine`),
+Juan Font Alonso <juanfontalonso@gmail.com> - 2022
+https://gitlab.com/juanfont/gitlab-machine`,
 }
 
 func getVcdDriver() *vcd.VcdDriver {
 	cfg := vcd.VcdDriverConfig{
-		VcdURL:           viper.GetString("vcd_url"),
-		VcdOrg:           viper.GetString("vcd_org"),
-		VcdVdc:           viper.GetString("vcd_vdc"),
-		VcdInsecure:      viper.GetBool("vcd_insecure"),
-		VcdUser:          viper.GetString("vcd_user"),
-		VcdPassword:      viper.GetString("vcd_password"),
-		VcdOrgVDCNetwork: viper.GetString("vcd_vdc_network"),
-		Catalog:          viper.GetString("vcd_catalog"),
-		Template:         viper.GetString("vcd_template"),
-		NumCpus:          viper.GetInt("vcd_num_cpus"),
-		CoresPerSocket:   viper.GetInt("vcd_cores_per_socket"),
-		MemorySizeMb:     viper.GetInt("vcd_memory_mb"),
+		VcdURL:           viper.GetString("vcd.url"),
+		VcdOrg:           viper.GetString("vcd.org"),
+		VcdVdc:           viper.GetString("vcd.vdc"),
+		VcdInsecure:      viper.GetBool("vcd.insecure"),
+		VcdUser:          viper.GetString("vcd.user"),
+		VcdPassword:      viper.GetString("vcd.password"),
+		VcdOrgVDCNetwork: viper.GetString("vcd.vdc_network"),
+		Catalog:          viper.GetString("vcd.catalog"),
+		Template:         viper.GetString("vcd.template"),
+		NumCpus:          viper.GetInt("vcd.num_cpus"),
+		CoresPerSocket:   viper.GetInt("vcd.cores_per_socket"),
+		MemorySizeMb:     viper.GetInt("vcd.memory_mb"),
 		Description:      "Created by gitlab-machine",
-		StorageProfile:   viper.GetString("vcd_storage_profile"),
+		StorageProfile:   viper.GetString("vcd.storage_profile"),
 
-		DefaultPassword: viper.GetString("vcd_default_password"), // I dont like this
+		DefaultPassword: viper.GetString("vcd.default_password"), // I dont like this
 	}
 
 	machineName := fmt.Sprintf(
-		"machine-%s-project-%s-concurrent-%s-job-%s",
+		"gitlab-machine-%s-project-%s-concurrent-%s-job-%s",
 		os.Getenv("CUSTOM_ENV_CI_RUNNER_ID"),
 		os.Getenv("CUSTOM_ENV_CI_PROJECT_ID"),
 		os.Getenv("CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID"),
 		os.Getenv("CUSTOM_ENV_CI_JOB_ID"),
 	)
+
+	motd := viper.GetString("vcd.motd")
+	if motd != "" {
+		log.Info().Msg(motd)
+	}
 
 	vcd, _ := vcd.NewVcdDriver(cfg, machineName)
 	return vcd

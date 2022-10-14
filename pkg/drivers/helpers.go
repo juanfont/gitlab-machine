@@ -53,7 +53,7 @@ func waitForSpecificOrError(f func() (bool, error), maxAttempts int, waitInterva
 		}
 		time.Sleep(waitInterval)
 	}
-	return fmt.Errorf("Maximum number of retries (%d) exceeded", maxAttempts)
+	return fmt.Errorf("maximum number of retries (%d) exceeded", maxAttempts)
 }
 
 func runSSHCommandFromDriver(d Driver, command string) (string, error) {
@@ -62,7 +62,7 @@ func runSSHCommandFromDriver(d Driver, command string) (string, error) {
 		return "", err
 	}
 
-	log.Info().Msgf("Running SSH command: %s", command)
+	log.Debug().Msgf("Running SSH command: %s", command)
 
 	output, err := client.Output(command)
 	if err != nil {

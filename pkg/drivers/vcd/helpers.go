@@ -70,7 +70,7 @@ func (d *VcdDriver) getVM() (*govcd.VM, error) {
 func newClient(apiURL url.URL, user, password, org string, insecure bool) (*govcd.VCDClient, error) {
 	vcdclient := &govcd.VCDClient{
 		Client: govcd.Client{
-			APIVersion: "32.0", // supported by 9.5, 9.7, 10.0, 10.1
+			APIVersion: "36.3",
 			VCDHREF:    apiURL,
 			Http: http.Client{
 				Transport: &http.Transport{

@@ -2,10 +2,11 @@ package vcd
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/juanfont/gitlab-machine/pkg/drivers"
 	"github.com/juanfont/gitlab-machine/pkg/ssh"
@@ -71,6 +72,7 @@ func (d *VcdDriver) GetMachineName() string {
 }
 
 func (d *VcdDriver) Create() error {
+	log.Debug().Msgf("Creating a new machine %s", d.machineName)
 	org, err := d.client.GetOrgByName(d.cfg.VcdOrg)
 	if err != nil {
 		return err
@@ -107,7 +109,7 @@ func (d *VcdDriver) Create() error {
 		}
 	} else {
 		if len(vdc.Vdc.VdcStorageProfiles.VdcStorageProfile) < 1 {
-			return fmt.Errorf("No storage profile available")
+			return fmt.Errorf("no storage profile available")
 		}
 		storageProfile = *(vdc.Vdc.VdcStorageProfiles.VdcStorageProfile[0])
 		if err != nil {
@@ -115,7 +117,6 @@ func (d *VcdDriver) Create() error {
 		}
 	}
 
-	log.Printf("Creating a new executor %s", d.machineName)
 	networks := []*types.OrgVDCNetwork{}
 	networks = append(networks, net.OrgVDCNetwork)
 	task, err := vdc.ComposeVApp(
@@ -149,7 +150,7 @@ func (d *VcdDriver) Create() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Deploying VM %s", vm.VM.Name)
+
 	d.VMHREF = vm.VM.HREF
 
 	cWait := make(chan string, 1)
@@ -182,10 +183,10 @@ func (d *VcdDriver) Create() error {
 	select {
 	case res := <-cWait:
 		if res == "err" {
-			return fmt.Errorf("Error waiting for vApp deploy")
+			return fmt.Errorf("error waiting for vApp deploy")
 		}
 	case <-time.After(15 * time.Minute):
-		return fmt.Errorf("Reached timeout while deploying VM")
+		return fmt.Errorf("reached timeout while deploying VM")
 	}
 
 	if vm.VM.VmSpecSection == nil {
@@ -202,7 +203,7 @@ func (d *VcdDriver) Create() error {
 		return err
 	}
 
-	log.Printf("Configuring network")
+	log.Debug().Msg("Configuring network")
 	var netConn *types.NetworkConnection
 	var netSection *types.NetworkConnectionSection
 	if vm.VM.NetworkConnectionSection == nil {
@@ -245,7 +246,7 @@ func (d *VcdDriver) Create() error {
 		return err
 	}
 
-	log.Printf("Booting up %s", d.machineName)
+	log.Info().Msgf("Booting up %s", d.machineName)
 	task, err = vapp.PowerOn()
 	if err != nil {
 		return err
@@ -257,7 +258,7 @@ func (d *VcdDriver) Create() error {
 	d.VAppHREF = vapp.VApp.HREF
 	d.VMHREF = vm.VM.HREF
 
-	log.Printf("Waiting for SSH to be available")
+	log.Info().Msgf("Waiting for SSH to be available")
 	for i := 0; i < 10; i++ {
 		// fmt.Printf("Attempt %d", i)
 		err = drivers.WaitForSSH(d)
@@ -265,7 +266,7 @@ func (d *VcdDriver) Create() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Ready!")
+	log.Info().Msg("This is a go!")
 	return nil
 }
 
@@ -305,17 +306,16 @@ func (d *VcdDriver) Destroy() error {
 
 	task, err := vapp.PowerOff()
 	if err == nil {
-		log.Printf("Powering off...")
+		log.Info().Msg("Powering off...")
 		if err = task.WaitTaskCompletion(); err != nil {
-			return err
+			log.Warn().Msg("Error powering off")
 		}
 	}
 
 	task, err = vapp.Undeploy()
 	if err == nil {
-		log.Printf("Undeploying...")
 		if err = task.WaitTaskCompletion(); err != nil {
-			return err
+			log.Warn().Msg("Error undeploying")
 		}
 	}
 
