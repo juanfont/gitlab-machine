@@ -38,6 +38,11 @@ var prepareVcdCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		vcdDriver := getVcdDriver()
 		e, _ := machine.NewExecutor(vcdDriver)
+
+		if vcdDriver.MOTD() != "" {
+			log.Info().Msg(vcdDriver.MOTD())
+		}
+
 		err := e.Prepare()
 		if err != nil {
 			log.Fatal().Err(err).Msg("Error preparing executor")
@@ -60,7 +65,7 @@ var runVcdCmd = &cobra.Command{
 		e, _ := machine.NewExecutor(vcd)
 		err := e.Run(args[0], args[1])
 		if err != nil {
-			log.Fatal().Err(err).Msg("Error creating executor")
+			log.Fatal().Err(err).Msg("Error running the command")
 		}
 	},
 }
@@ -126,6 +131,8 @@ func getVcdDriver() *vcd.VcdDriver {
 		StorageProfile:   viper.GetString("vcd.storage_profile"),
 
 		DefaultPassword: viper.GetString("vcd.default_password"), // I dont like this
+
+		MOTD: viper.GetString("vcd.motd"),
 	}
 
 	machineName := fmt.Sprintf(
@@ -135,11 +142,6 @@ func getVcdDriver() *vcd.VcdDriver {
 		os.Getenv("CUSTOM_ENV_CI_CONCURRENT_PROJECT_ID"),
 		os.Getenv("CUSTOM_ENV_CI_JOB_ID"),
 	)
-
-	motd := viper.GetString("vcd.motd")
-	if motd != "" {
-		log.Info().Msg(motd)
-	}
 
 	vcd, _ := vcd.NewVcdDriver(cfg, machineName)
 	return vcd

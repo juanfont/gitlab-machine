@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
-	"strings"
 
 	"github.com/dimchansky/utfbom"
+	"github.com/rs/zerolog/log"
+
 	"github.com/juanfont/gitlab-machine/pkg/drivers"
 )
 
@@ -29,34 +29,62 @@ func (e *Executor) Prepare() error {
 		return err
 	}
 
-	log.Println("Setting up base software")
+	log.Info().Msg("Setting up base software")
 	if os, _ := e.driver.GetOS(); os == drivers.Windows {
 		pw := `powershell New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force`
-		e.runCommand(pw, false)
-		e.runCommand("choco install -y --no-progress git git-lfs gitlab-runner", false)
+		err = e.runCommand(pw, true)
+		if err != nil {
+			return err
+		}
+
+		err = e.runCommand("choco install -y --no-progress git.install;", true)
+		if err != nil {
+			return err
+		}
+
+		err = e.runCommand("refreshenv;", true)
+		if err != nil {
+			return err
+		}
+
+		err = e.runCommand("choco install -y --no-progress poshgit;", true)
+		if err != nil {
+			return err
+		}
+
+		err = e.runCommand("choco install -y --no-progress gitlab-runner;", true)
+		if err != nil {
+			return err
+		}
+
+		err = e.runCommand("Restart-Service -force sshd", true) // https://github.com/chocolatey/choco/issues/2694
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
 // Run executes the required script
-func (e *Executor) Run(path string, stage string) error {
-	data, err := os.ReadFile(path)
+func (e *Executor) Run(filePath string, stage string) error {
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
+
 	reader, _ := utfbom.Skip(bytes.NewReader(data))
 	buf, err := io.ReadAll(reader)
 	if err != nil {
 		return err
 	}
 
-	// This code is utter crap...
-	content := strings.ReplaceAll(string(buf), "\r\n", "\n")
-	content = strings.ReplaceAll(content, "\n", ";")
-	content = strings.ReplaceAll(content, `"`, `\"`)
+	log.Debug().Msgf("Starting stage on %s %s (%s)", e.driver.GetMachineName(), stage, filePath)
+	err = e.runCommand(string(buf), true)
+	if err != nil {
+		return err
+	}
 
-	log.Printf("Starting stage on %s %s (%s)", e.driver.GetMachineName(), stage, path)
-	e.runCommand(content, true)
 	return nil
 }
 
@@ -81,17 +109,22 @@ func (e *Executor) runCommand(command string, printOutput bool) error {
 		return err
 	}
 
+	log.Info().Str("command", command).Msg("Running command")
+
 	output, err := client.Output(command)
 	if printOutput {
 		fmt.Printf("%s", output)
 	}
 
 	if err != nil {
-		return fmt.Errorf(`ssh command error:
-	command : %s
-	err     : %v
-	output  : %s`, command, err, output)
+		log.Error().
+			Err(err).
+			Str("command", command).
+			Str("output", string(output)).
+			Msg("Error running command")
+		return fmt.Errorf("ssh command error")
 	}
 
+	log.Debug().Msg("Command executed successfully")
 	return nil
 }

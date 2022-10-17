@@ -36,6 +36,8 @@ type VcdDriverConfig struct {
 	StorageProfile string
 
 	DefaultPassword string
+
+	MOTD string
 }
 
 type VcdDriver struct {
@@ -225,10 +227,7 @@ func (d *VcdDriver) Create() error {
 	netConn.NeedsCustomization = true
 	netConn.Network = d.cfg.VcdOrgVDCNetwork
 
-	vm.UpdateNetworkConnectionSection(netSection)
-
-	// log.Printf("Setting up guest customization")
-	// sshCustomScript, err := d.getGuestCustomizationScript()
+	err = vm.UpdateNetworkConnectionSection(netSection)
 	if err != nil {
 		return err
 	}
@@ -258,15 +257,24 @@ func (d *VcdDriver) Create() error {
 	d.VAppHREF = vapp.VApp.HREF
 	d.VMHREF = vm.VM.HREF
 
+	ip, err := d.GetIP()
+
+	log.Info().Msg("Waiting for the machine to be up")
+	err = d.waitForRDPStable(ip)
+	if err != nil {
+		return err
+	}
+
 	log.Info().Msgf("Waiting for SSH to be available")
 	for i := 0; i < 10; i++ {
-		// fmt.Printf("Attempt %d", i)
+		// fmt.Printf("Attempt %d", i
 		err = drivers.WaitForSSH(d)
 	}
 	if err != nil {
 		return err
 	}
-	log.Info().Msg("This is a go!")
+
+	log.Info().Msg("SSH is available")
 	return nil
 }
 
@@ -362,4 +370,8 @@ func (d *VcdDriver) GetIP() (string, error) {
 	}
 
 	return "", fmt.Errorf("could not get public IP")
+}
+
+func (d *VcdDriver) MOTD() string {
+	return d.cfg.MOTD
 }
