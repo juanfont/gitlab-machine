@@ -274,7 +274,7 @@ func (d *VcdDriver) Create() error {
 		return err
 	}
 
-	log.Info().Msg("SSH is available")
+	log.Debug().Msg("SSH is available")
 	return nil
 }
 

@@ -32,32 +32,32 @@ func (e *Executor) Prepare() error {
 	log.Info().Msg("Setting up base software")
 	if os, _ := e.driver.GetOS(); os == drivers.Windows {
 		pw := `powershell New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force`
-		err = e.runCommand(pw, true)
+		err = e.runCommand(pw, false)
 		if err != nil {
 			return err
 		}
 
-		err = e.runCommand("choco install -y --no-progress git.install;", true)
+		err = e.runCommand("choco install -y --no-progress git.install;", false)
 		if err != nil {
 			return err
 		}
 
-		err = e.runCommand("refreshenv;", true)
+		err = e.runCommand("refreshenv;", false)
 		if err != nil {
 			return err
 		}
 
-		err = e.runCommand("choco install -y --no-progress poshgit;", true)
+		err = e.runCommand("choco install -y --no-progress poshgit;", false)
 		if err != nil {
 			return err
 		}
 
-		err = e.runCommand("choco install -y --no-progress gitlab-runner;", true)
+		err = e.runCommand("choco install -y --no-progress gitlab-runner;", false)
 		if err != nil {
 			return err
 		}
 
-		err = e.runCommand("Restart-Service -force sshd", true) // https://github.com/chocolatey/choco/issues/2694
+		err = e.runCommand("Restart-Service -force sshd", false) // https://github.com/chocolatey/choco/issues/2694
 		if err != nil {
 			return err
 		}
@@ -109,13 +109,9 @@ func (e *Executor) runCommand(command string, printOutput bool) error {
 		return err
 	}
 
-	log.Info().Str("command", command).Msg("Running command")
+	log.Debug().Str("command", command).Msg("Running command")
 
 	output, err := client.Output(command)
-	if printOutput {
-		fmt.Printf("%s", output)
-	}
-
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -125,6 +121,12 @@ func (e *Executor) runCommand(command string, printOutput bool) error {
 		return fmt.Errorf("ssh command error")
 	}
 
-	log.Debug().Msg("Command executed successfully")
+	if printOutput {
+		fmt.Printf("%s", output)
+		log.Debug().Msg("Command executed successfully")
+	} else {
+		log.Debug().Str("output", output).Msg("Command executed successfully")
+	}
+
 	return nil
 }
