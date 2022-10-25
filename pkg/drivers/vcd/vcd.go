@@ -36,8 +36,6 @@ type VcdDriverConfig struct {
 	StorageProfile string
 
 	DefaultPassword string
-
-	MOTD string
 }
 
 type VcdDriver struct {
@@ -370,8 +368,4 @@ func (d *VcdDriver) GetIP() (string, error) {
 	}
 
 	return "", fmt.Errorf("could not get public IP")
-}
-
-func (d *VcdDriver) MOTD() string {
-	return d.cfg.MOTD
 }

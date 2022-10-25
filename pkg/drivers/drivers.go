@@ -15,6 +15,4 @@ type Driver interface {
 	GetMachineName() string
 	GetOS() (OStype, error)
 	GetSSHClientFromDriver() (ssh.Client, error)
-
-	MOTD() string
 }
