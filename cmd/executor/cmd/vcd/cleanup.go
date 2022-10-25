@@ -11,9 +11,12 @@ var cleanupVcdCmd = &cobra.Command{
 	Short: "Remove the current executor",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		vcd := getVcdDriver()
-		e, _ := executor.NewExecutor(vcd)
-		err := e.CleanUp()
+		vcdDriver, err := getVcdDriver()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error creating vcd driver")
+		}
+		e, _ := executor.NewExecutor(vcdDriver)
+		err = e.CleanUp()
 		if err != nil {
 			log.Fatal().Err(err).Msg("Error cleaning up executor")
 		}

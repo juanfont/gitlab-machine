@@ -21,7 +21,7 @@ func init() {
 	VcdCmd.AddCommand(shellVcdCmd)
 }
 
-func getVcdDriver() *vcd.VcdDriver {
+func getVcdDriver() (*vcd.VcdDriver, error) {
 	cfg := vcd.VcdDriverConfig{
 		VcdURL:           viper.GetString("drivers.vcd.url"),
 		VcdOrg:           viper.GetString("drivers.vcd.org"),
@@ -49,6 +49,5 @@ func getVcdDriver() *vcd.VcdDriver {
 		os.Getenv("CUSTOM_ENV_CI_JOB_ID"),
 	)
 
-	vcd, _ := vcd.NewVcdDriver(cfg, machineName)
-	return vcd
+	return vcd.NewVcdDriver(cfg, machineName)
 }

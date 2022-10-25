@@ -11,10 +11,13 @@ var prepareVcdCmd = &cobra.Command{
 	Short: "Prepare a new instance of the vCloud Director executor",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		vcdDriver := getVcdDriver()
+		vcdDriver, err := getVcdDriver()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error creating vcd driver")
+		}
 		e, _ := executor.NewExecutor(vcdDriver)
 
-		err := e.Prepare()
+		err = e.Prepare()
 		if err != nil {
 			log.Fatal().Err(err).Msg("Error preparing executor")
 		}

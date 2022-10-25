@@ -19,9 +19,12 @@ var shellVcdCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		vcd := getVcdDriver()
-		e, _ := executor.NewExecutor(vcd)
-		err := e.Shell(args[0])
+		vcdDriver, err := getVcdDriver()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error creating vcd driver")
+		}
+		e, _ := executor.NewExecutor(vcdDriver)
+		err = e.Shell(args[0])
 		if err != nil {
 			log.Fatal().Err(err).Msg("Error creating executor")
 		}

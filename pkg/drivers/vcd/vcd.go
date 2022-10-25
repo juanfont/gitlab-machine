@@ -72,7 +72,7 @@ func (d *VcdDriver) GetMachineName() string {
 }
 
 func (d *VcdDriver) Create() error {
-	log.Debug().Msgf("Creating a new machine %s", d.machineName)
+	log.Info().Msgf("Creating a new machine %s", d.machineName)
 	org, err := d.client.GetOrgByName(d.cfg.VcdOrg)
 	if err != nil {
 		return err
