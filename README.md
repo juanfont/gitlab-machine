@@ -16,22 +16,23 @@ It should probably be replace with https://gitlab.com/gitlab-org/ci-cd/custom-ex
 # The config file is a YAML file with the following structure:
 log_level: debug
 
-vcd:
-  motd: "Deploying a dedicated VM using https://github.com/juanfont/gitlab-machine"
-  url: https://cloudirector
-  org: tenant
-  vdc: virtualdatancer
-  insecure: false
-  user: username
-  password: password
-  vdc_network: orgvdcnetwrok
-  catalog: vcdcatalogue
-  template: Windows_10
-  num_cpus: 8
-  cores_per_socket: 8
-  memory_mb: 8192
-  storage_profile: storageprofile
-  default_password: VMpassword
+drivers:
+  vcd:
+    motd: "Deploying a dedicated VM using https://github.com/juanfont/gitlab-machine"
+    url: https://cloudirector
+    org: tenant
+    vdc: virtualdatancer
+    insecure: false
+    user: username
+    password: password
+    vdc_network: orgvdcnetwrok
+    catalog: vcdcatalogue
+    template: Windows_10
+    num_cpus: 8
+    cores_per_socket: 8
+    memory_mb: 8192
+    storage_profile: storageprofile
+    default_password: VMpassword
 ```
 
 ## More info
